@@ -4,16 +4,6 @@
     <script src="node_modules/three/examples/js/controls/OrbitControls.js"></script>
     <script src="node_modules/three/examples/js/loaders/BVHLoader.js"></script>
     <script src="node_modules/seedrandom/seedrandom.js"></script>
-    <div id="instructions">enter ur name:
-        <input type="text" id="nameInput" onkeyup="changeName()">
-    </div>
-    <div id="palette">
-        <div class="colorblock" id="p0" onclick="changeBvh()"></div>
-        <div class="colorblock" id="p1"></div>
-        <div class="colorblock" id="p2"></div>
-        <div class="colorblock" id="p3"></div>
-        <div class="colorblock" id="p4"></div>
-    </div> 
 </html>
 <style> 
 #instructions{
@@ -69,7 +59,6 @@ body{
 </script>  
 
 <script id="stripeFragment" type="x-shader/x-fragment">  
-    uniform vec2 u_resolution;
     uniform vec3 u_colors[5]; 
     
     varying vec3 v_normal; 
@@ -97,18 +86,17 @@ body{
 </script>  
 
 <script>
-    //starter code for loading BVH from https://github.com/mrdoob/three.js/blob/master/examples/webgl_loader_bvh.html
-    //TO DO: cooler patterns, walk animation in place, cooler bvh file than pirouette, 
-    //BUGS: why are the models different fml
+    //starter code from https://github.com/mrdoob/three.js/blob/master/examples/webgl_loader_bvh.html
+    
     var clock = new THREE.Clock();
     var camera, controls, scene, renderer;
     var mixer, skeletonHelper, boneContainer;
     var head, lhand, rhand, torso, rfoot, lfoot; 
     var miscParts = []; 
-
+    var boneContainers = []; 
     init();
     animate();
-
+    var mixers = []; 
     var limbs = [
         new THREE.BoxGeometry( 10, 10, 10 ), 
         new THREE.SphereGeometry( 10, 20, 15 ), 
@@ -130,7 +118,15 @@ body{
         Math. PI * 3 / 2, 
         Math.PI * 5 / 4
     ]
-
+    var names = [
+        "airsun", "breep", "casher", "chaine", "chewie", "chromsan", "dinkolas", 
+        "hasrsh", "lass", "nannon", "nerual", "nixel", "ocannoli", "paukparl", 
+        "placebo", "rigatoni", "sapeck", "sepho", "shuann", "spoon", "weirdie", 
+        "yalbert", "yuvian", "char", "golan"
+    ]
+    var bvhs = [
+        "pirouette", "02_01", "02_02", "02_03"
+    ]
     var colorArray = [new THREE.Color(0xffaaff), new THREE.Color(0xffaaff),  new THREE.Color(0xffaaff),  new THREE.Color(0xffaaff),  new THREE.Color(0xffaaff)]; 
     var uniforms = {u_resolution: {type: "v2", value: new THREE.Vector2()}, 
                     u_colors: {type: "v3v", value: colorArray}};
@@ -156,12 +152,18 @@ body{
     uniforms.u_resolution.value.y = renderer.domElement.height;
 
     var loader = new THREE.BVHLoader();
-    loader.load( "models/02_01.bvh", createSkeleton);
+    // while(names.length != 20)
+    for(var i = 0; i < names.length; i++)
+        // loader.load( "models/" + random(bvhs) + ".bvh", createSkeleton);
+         loader.load( "models/pirouette.bvh", createSkeleton);
+    // loader.load( "models/pirouette.bvh", createSkeleton);
+    // loader.load( "models/pirouette.bvh", createSkeleton);
+    // loader.load( "models/pirouette.bvh", createSkeleton);
 
     function createSkeleton(result){
-        skeletonHelper = new THREE.SkeletonHelper( result.skeleton.bones[ 0 ] );
+        var skeletonHelper = new THREE.SkeletonHelper( result.skeleton.bones[ 0 ] );
         skeletonHelper.skeleton = result.skeleton; // allow animation mixer to bind to SkeletonHelper directly
-        boneContainer = new THREE.Group();
+        var boneContainer = new THREE.Group();
 
         boneContainer.add( result.skeleton.bones[ 0 ] );
         var geometry = new THREE.BoxGeometry( 10, 10, 10 );
@@ -198,23 +200,29 @@ body{
             miscParts.push(part); 
             skeletonHelper.skeleton.bones[i].add(part);
         }
-
-        scene.add( skeletonHelper );
+        
+        // scene.add( skeletonHelper );
+        boneContainer.position.set(Math.floor((names.length - 1)/5) * 120 - 250, (names.length % 5) * 120 - 250 , 0); 
+        console.log(Math.floor((names.length - 1)/5)); 
+        console.log(Math.floor(names.length% 5)); 
+        boneContainer.scale.set(.5, .5, .5); 
+        boneContainers.push(boneContainer); 
         scene.add( boneContainer );
         skeletonHelper.material = new THREE.MeshBasicMaterial({
             color:"white", 
             transparent:"true", 
             opacity:"0.0"}); 
-        mixer = new THREE.AnimationMixer( skeletonHelper );
+        
+        var mixer = new THREE.AnimationMixer( skeletonHelper );
+        mixers.push(mixer); 
         mixer.clipAction( result.clip ).setEffectiveWeight( 1.0 ).play();
-        changeBody(""); 
+        changeBody(names.pop()); 
     }
     function init() {
         camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, .1, 1000 );
-        camera.position.set( 0, 200, 400 );
+        camera.position.set( 0, 0, 600 );
         scene = new THREE.Scene();
-        scene.add( new THREE.GridHelper( 400, 10 ) );
-        scene.background = new THREE.Color(0xdddddd); 
+        scene.background = new THREE.Color(0xeeeeee); 
         renderer = new THREE.WebGLRenderer( { antialias: true } );
         renderer.setPixelRatio( window.devicePixelRatio );
         renderer.setSize( window.innerWidth, window.innerHeight );
@@ -233,29 +241,37 @@ body{
     function animate() {
         requestAnimationFrame( animate );
         var delta = clock.getDelta();
-        if ( mixer ) mixer.update( delta );
+        // if ( mixer ) mixer.update( delta );
+        if(mixers)
+            for(var i = 0; i<mixers.length; i++)
+                mixers[i].update(delta); 
         renderer.render( scene, camera );
     }
     function changeBody(seed) {
+        console.log(seed); 
         Math.seedrandom(seed); 
 
         color = random(colors); 
         for(var i = 0; i < 5; i++){
             colorArray[i] = new THREE.Color(color[i]); 
-            document.getElementById("p" + i).style.background = color[i]; 
         }
+        var materials2 = []
+        for(var i = 0; i < materials.length; i++){
+            materials2.push(materials[i].clone()); 
+        }
+        //why different :( )
         lhand.geometry = random(limbs); 
-        lhand.material = random(materials); 
+        lhand.material = random(materials2); 
         rhand.geometry = random(limbs); 
-        rhand.material = random(materials); 
+        rhand.material = random(materials2); 
         torso.geometry = random(bodies); 
-        torso.material = random(materials); 
+        torso.material = random(materials2); 
         lfoot.geometry = random(limbs); 
-        lfoot.material = random(materials); 
+        lfoot.material = random(materials2); 
         rfoot.geometry = random(limbs); 
-        rfoot.material = random(materials);
+        rfoot.material = random(materials2);
         head.geometry = random(limbs); 
-        head.material = random(materials); 
+        head.material = random(materials2); 
         head.scale.set(2, 2,2); 
         for(var i=0; i<miscParts.length; i++){
             miscParts[i].geometry =  new THREE.BoxGeometry( Math.random() * 15, Math.random() * 15, Math.random() * 10 );
