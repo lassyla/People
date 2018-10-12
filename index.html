@@ -6,43 +6,42 @@
     <script src="node_modules/seedrandom/seedrandom.js"></script>
     <div id="instructions">enter ur name:
         <input type="text" id="nameInput" onkeyup="changeName()">
+        <div id="changebvh" onclick="changeBvh()"> new pose</div>
     </div>
-    <div id="palette">
-        <div class="colorblock" id="p0" onclick="changeBvh()"></div>
-        <div class="colorblock" id="p1"></div>
-        <div class="colorblock" id="p2"></div>
-        <div class="colorblock" id="p3"></div>
-        <div class="colorblock" id="p4"></div>
-    </div> 
 </html>
 <style> 
 #instructions{
-    color: white; 
+    padding-top: 2em; 
+    color: darkgray; 
     position: absolute;
-    z-index: 2; 
     padding: 3px; 
     width: 100%; 
     text-align: center;
     font-size: 2em;
+    height: 100vh; 
     font-family: sans-serif; 
+    pointer-events: none;
+}
+#changebvh{
+    padding: .4em; 
+    background: white; 
+    display: inline-block; 
+    position: absolute; 
+    bottom: 1em; 
+    right: 1em; 
+    cursor: pointer; 
+    pointer-events: fill; 
+
 }
 #nameInput{
+    margin-top: 1em; 
     font-size: 1em; 
+    pointer-events: fill; 
 }
 body{
     margin: 0; 
     overflow: hidden;  
 }
-#palette{
-    position:absolute; 
-    z-index: 3;
-}
-.colorblock{
-    width: 50px; 
-    height: 50px; 
-    background: green; 
-}
-
 
 </style> 
 <script id="vertex" type="x-shader/x-fragment">  
@@ -58,13 +57,14 @@ body{
     uniform vec2 u_resolution;
     uniform vec3 u_colors[5]; 
 
+    varying vec3 v_normal; 
+
     void main() {  
         vec2 st = gl_FragCoord.xy/u_resolution.xy;
       
-        float mixValue = distance(st,vec2(0,1));
-        vec3 color = mix(u_colors[1],u_colors[4],mixValue);
-      
-        gl_FragColor = vec4(color,mixValue);
+        vec3 color = mix(u_colors[1],u_colors[4],v_normal.y);
+        color = u_colors[3] * dot(v_normal, vec3(0.1, 0.1, 0.1)) + color; 
+        gl_FragColor = vec4(color, 1.0);
     }
 </script>  
 
@@ -78,8 +78,7 @@ body{
 
         vec3 color = u_colors[1] * dot(v_normal, vec3(0.1, 0.1, 0.1)) + u_colors[0]; 
         gl_FragColor = vec4(color,1.0);
-
-        //if(mod(gl_FragCoord.x, 12.0) <= 5.0) gl_FragColor = vec4(u_colors[2], 1.0); 
+        if(mod(v_normal.x * 6.0, 2.0) <= 1.0) gl_FragColor = vec4(u_colors[2], 1.0); 
 
     }
 </script>  
@@ -96,67 +95,73 @@ body{
     }
 </script>  
 
+
 <script>
     //starter code for loading BVH from https://github.com/mrdoob/three.js/blob/master/examples/webgl_loader_bvh.html
     //TO DO: cooler patterns, walk animation in place, cooler bvh file than pirouette, 
-    //BUGS: why are the models different fml
+    //BUGS: why are the models different fml, why is transparent material not transparent
     var clock = new THREE.Clock();
     var camera, controls, scene, renderer;
     var mixer, skeletonHelper, boneContainer;
     var head, lhand, rhand, torso, rfoot, lfoot; 
     var miscParts = []; 
+    var limbs = [
+    new THREE.BoxGeometry( 10, 10, 10 ), 
+    new THREE.SphereGeometry( 10, 20, 15 ), 
+    new THREE.ConeGeometry( 10, 10, 30 ), 
+    new THREE.CylinderGeometry( 10, 10, 10, 5 ), 
+    new THREE.TorusGeometry( 7, 3, 10, 30 ), 
+    new THREE.TorusKnotGeometry( 7, 3, 10, 30 ), 
+    new THREE.DodecahedronGeometry(7)
+]
+var bodies = [
+    new THREE.BoxGeometry( 30, 60, 30 ), 
+    new THREE.SphereGeometry( 30, 20, 15 ), 
+    new THREE.ConeGeometry( 30, 60, 30 ), 
+    new THREE.CylinderGeometry( 20, 30, 50, 5 ), 
+    new THREE.TorusGeometry( 20, 10, 10, 30 ), 
+    new THREE.TorusKnotGeometry( 20, 10, 10, 30 ), 
+    new THREE.DodecahedronGeometry(20)
+]
+var colorArray = [new THREE.Color(0xffaaff), new THREE.Color(0xffaaff),  new THREE.Color(0xffaaff),  new THREE.Color(0xffaaff),  new THREE.Color(0xffaaff)]; 
+var uniforms = {u_resolution: {type: "v2", value: new THREE.Vector2()}, 
+                u_colors: {type: "v3v", value: colorArray}};
+
+var materials = [
+    new THREE.ShaderMaterial( {  
+        uniforms: uniforms,
+        vertexShader: document.getElementById("vertex").textContent,
+        fragmentShader: document.getElementById("stripeFragment").textContent,
+    }), 
+    new THREE.ShaderMaterial( {  
+        uniforms: uniforms,
+        vertexShader: document.getElementById("vertex").textContent,
+        fragmentShader: document.getElementById("gradientFragment").textContent,
+    }), 
+    new THREE.ShaderMaterial( {  
+        uniforms: uniforms,
+        vertexShader: document.getElementById("vertex").textContent,
+        fragmentShader: document.getElementById("plainFragment").textContent
+    }), 
+    new THREE.ShaderMaterial( {  
+        uniforms: uniforms,
+        vertexShader: document.getElementById("vertex").textContent,
+        fragmentShader: document.getElementById("plainFragment").textContent,
+        wireframe: true 
+    })
+
+]
 
     init();
     animate();
 
-    var limbs = [
-        new THREE.BoxGeometry( 10, 10, 10 ), 
-        new THREE.SphereGeometry( 10, 20, 15 ), 
-        new THREE.ConeGeometry( 10, 10, 30 ), 
-        new THREE.CylinderGeometry( 10, 10, 10, 5 ), 
-        new THREE.TorusGeometry( 7, 3, 10, 30 )
+    var bvhs = ["02_04", "02_05", "02_06", "02_07", "02_08", "02_09", "02_10", "pirouette"]
 
-    ]
-    var bodies = [
-        new THREE.BoxGeometry( 30, 60, 30 ), 
-        new THREE.SphereGeometry( 30, 20, 15 ), 
-        new THREE.ConeGeometry( 30, 60, 30 ), 
-        new THREE.CylinderGeometry( 20, 30, 50, 5 ), 
-        new THREE.TorusGeometry( 20, 10, 10, 30 )
-    ]
-    var angles = [
-        Math.PI, 
-        Math.PI / 2, 
-        Math. PI * 3 / 2, 
-        Math.PI * 5 / 4
-    ]
-
-    var colorArray = [new THREE.Color(0xffaaff), new THREE.Color(0xffaaff),  new THREE.Color(0xffaaff),  new THREE.Color(0xffaaff),  new THREE.Color(0xffaaff)]; 
-    var uniforms = {u_resolution: {type: "v2", value: new THREE.Vector2()}, 
-                    u_colors: {type: "v3v", value: colorArray}};
-
-    var materials = [
-        new THREE.ShaderMaterial( {  
-            uniforms: uniforms,
-            vertexShader: document.getElementById("vertex").textContent,
-            fragmentShader: document.getElementById("stripeFragment").textContent,
-        }), 
-        new THREE.ShaderMaterial( {  
-            uniforms: uniforms,
-            vertexShader: document.getElementById("vertex").textContent,
-            fragmentShader: document.getElementById("gradientFragment").textContent,
-        }), 
-        new THREE.ShaderMaterial( {  
-            uniforms: uniforms,
-            vertexShader: document.getElementById("vertex").textContent,
-            fragmentShader: document.getElementById("plainFragment").textContent,
-        })
-    ]
     uniforms.u_resolution.value.x = renderer.domElement.width;
     uniforms.u_resolution.value.y = renderer.domElement.height;
 
     var loader = new THREE.BVHLoader();
-    loader.load( "models/02_01.bvh", createSkeleton);
+    loader.load( "models/" + random(bvhs) + ".bvh", createSkeleton);
 
     function createSkeleton(result){
         skeletonHelper = new THREE.SkeletonHelper( result.skeleton.bones[ 0 ] );
@@ -165,16 +170,12 @@ body{
 
         boneContainer.add( result.skeleton.bones[ 0 ] );
         var geometry = new THREE.BoxGeometry( 10, 10, 10 );
-        head = new THREE.Mesh( random(limbs), new THREE.ShaderMaterial( {  
-            uniforms: uniforms,
-            vertexShader: document.getElementById("vertex").textContent,
-            fragmentShader: document.getElementById("stripeFragment").textContent,
-        }));
+        head = new THREE.Mesh( random(limbs), materials[0] );
         lhand = new THREE.Mesh( random(limbs), materials[0] );
-        rhand = new THREE.Mesh( random(limbs), materials[0]  );
-        lfoot = new THREE.Mesh( random(limbs), materials[0]  );
-        rfoot = new THREE.Mesh( random(limbs), materials[0]  );
-        torso = new THREE.Mesh( random(bodies), materials[0]  );
+        rhand = new THREE.Mesh( random(limbs), materials[0] );
+        lfoot = new THREE.Mesh( random(limbs), materials[0] );
+        rfoot = new THREE.Mesh( random(limbs), materials[0] );
+        torso = new THREE.Mesh( random(bodies), materials[0] );
         // torso.scale.set(Math.random() * 1.5, Math.random() * 1.5, Math.random() * 1.5);
 
         skeletonHelper.skeleton.bones[4].add(head); 
@@ -207,7 +208,7 @@ body{
             opacity:"0.0"}); 
         mixer = new THREE.AnimationMixer( skeletonHelper );
         mixer.clipAction( result.clip ).setEffectiveWeight( 1.0 ).play();
-        changeBody(""); 
+        changeName(); 
     }
     function init() {
         camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, .1, 1000 );
@@ -237,13 +238,17 @@ body{
         renderer.render( scene, camera );
     }
     function changeBody(seed) {
+        console.log(seed); 
         Math.seedrandom(seed); 
 
         color = random(colors); 
         for(var i = 0; i < 5; i++){
             colorArray[i] = new THREE.Color(color[i]); 
-            document.getElementById("p" + i).style.background = color[i]; 
         }
+        for(var i = 0; i < materials.length; i++){
+            materials[i].clone(); //idk why i do this but its the only way to make randomness match with class.html
+        }
+
         lhand.geometry = random(limbs); 
         lhand.material = random(materials); 
         rhand.geometry = random(limbs); 
@@ -261,9 +266,7 @@ body{
             miscParts[i].geometry =  new THREE.BoxGeometry( Math.random() * 15, Math.random() * 15, Math.random() * 10 );
             miscParts[i].material = random(materials); 
         }
-        // scene.background = new THREE.Color(colorArray[4]); 
-    }
-    function changeName() {
+    }    function changeName() {
         changeBody(document.getElementById("nameInput").value); 
     }
     function random(arr) {

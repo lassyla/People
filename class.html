@@ -33,7 +33,6 @@ body{
     background: green; 
 }
 
-
 </style> 
 <script id="vertex" type="x-shader/x-fragment">  
     varying vec3 v_normal; 
@@ -48,17 +47,19 @@ body{
     uniform vec2 u_resolution;
     uniform vec3 u_colors[5]; 
 
+    varying vec3 v_normal; 
+
     void main() {  
         vec2 st = gl_FragCoord.xy/u_resolution.xy;
       
-        float mixValue = distance(st,vec2(0,1));
-        vec3 color = mix(u_colors[1],u_colors[4],mixValue);
-      
-        gl_FragColor = vec4(color,mixValue);
+        vec3 color = mix(u_colors[1],u_colors[4],v_normal.y);
+        color = u_colors[3] * dot(v_normal, vec3(0.1, 0.1, 0.1)) + color; 
+        gl_FragColor = vec4(color, 1.0);
     }
 </script>  
 
 <script id="stripeFragment" type="x-shader/x-fragment">  
+    uniform vec2 u_resolution;
     uniform vec3 u_colors[5]; 
     
     varying vec3 v_normal; 
@@ -67,8 +68,7 @@ body{
 
         vec3 color = u_colors[1] * dot(v_normal, vec3(0.1, 0.1, 0.1)) + u_colors[0]; 
         gl_FragColor = vec4(color,1.0);
-
-        //if(mod(gl_FragCoord.x, 12.0) <= 5.0) gl_FragColor = vec4(u_colors[2], 1.0); 
+        if(mod(v_normal.x * 6.0, 2.0) <= 1.0) gl_FragColor = vec4(u_colors[2], 1.0); 
 
     }
 </script>  
@@ -85,6 +85,7 @@ body{
     }
 </script>  
 
+
 <script>
     //starter code from https://github.com/mrdoob/three.js/blob/master/examples/webgl_loader_bvh.html
     
@@ -94,38 +95,35 @@ body{
     var head, lhand, rhand, torso, rfoot, lfoot; 
     var miscParts = []; 
     var boneContainers = []; 
+    
     init();
+    
     animate();
     var mixers = []; 
+    var names = [
+        "airsun", "breep", "casher", "chaine", "chewie", "chromsan", "dinkolas", 
+        "harsh", "lass", "nannon", "nerual", "nixel", "ocannoli", "paukparl", 
+        "placebo", "rigatoni", "sapeck", "sepho", "shuann", "spoon", "weirdie", 
+        "yalbert", "yuvian", "char", "golan"
+    ]
+    var bvhs = ["02_04", "02_05", "02_06", "02_07", "02_08", "02_09", "02_10"]
     var limbs = [
-        new THREE.BoxGeometry( 10, 10, 10 ), 
-        new THREE.SphereGeometry( 10, 20, 15 ), 
-        new THREE.ConeGeometry( 10, 10, 30 ), 
-        new THREE.CylinderGeometry( 10, 10, 10, 5 ), 
-        new THREE.TorusGeometry( 7, 3, 10, 30 )
-
+    new THREE.BoxGeometry( 10, 10, 10 ), 
+    new THREE.SphereGeometry( 10, 20, 15 ), 
+    new THREE.ConeGeometry( 10, 10, 30 ), 
+    new THREE.CylinderGeometry( 10, 10, 10, 5 ), 
+    new THREE.TorusGeometry( 7, 3, 10, 30 ), 
+    new THREE.TorusKnotGeometry( 7, 3, 10, 30 ), 
+    new THREE.DodecahedronGeometry(7)
     ]
     var bodies = [
         new THREE.BoxGeometry( 30, 60, 30 ), 
         new THREE.SphereGeometry( 30, 20, 15 ), 
         new THREE.ConeGeometry( 30, 60, 30 ), 
         new THREE.CylinderGeometry( 20, 30, 50, 5 ), 
-        new THREE.TorusGeometry( 20, 10, 10, 30 )
-    ]
-    var angles = [
-        Math.PI, 
-        Math.PI / 2, 
-        Math. PI * 3 / 2, 
-        Math.PI * 5 / 4
-    ]
-    var names = [
-        "airsun", "breep", "casher", "chaine", "chewie", "chromsan", "dinkolas", 
-        "hasrsh", "lass", "nannon", "nerual", "nixel", "ocannoli", "paukparl", 
-        "placebo", "rigatoni", "sapeck", "sepho", "shuann", "spoon", "weirdie", 
-        "yalbert", "yuvian", "char", "golan"
-    ]
-    var bvhs = [
-        "pirouette", "02_01", "02_02", "02_03"
+        new THREE.TorusGeometry( 20, 10, 10, 30 ), 
+        new THREE.TorusKnotGeometry( 20, 10, 10, 30 ), 
+        new THREE.DodecahedronGeometry(20)
     ]
     var colorArray = [new THREE.Color(0xffaaff), new THREE.Color(0xffaaff),  new THREE.Color(0xffaaff),  new THREE.Color(0xffaaff),  new THREE.Color(0xffaaff)]; 
     var uniforms = {u_resolution: {type: "v2", value: new THREE.Vector2()}, 
@@ -145,7 +143,13 @@ body{
         new THREE.ShaderMaterial( {  
             uniforms: uniforms,
             vertexShader: document.getElementById("vertex").textContent,
+            fragmentShader: document.getElementById("plainFragment").textContent
+        }), 
+        new THREE.ShaderMaterial( {  
+            uniforms: uniforms,
+            vertexShader: document.getElementById("vertex").textContent,
             fragmentShader: document.getElementById("plainFragment").textContent,
+            wireframe: true 
         })
     ]
     uniforms.u_resolution.value.x = renderer.domElement.width;
@@ -155,7 +159,7 @@ body{
     // while(names.length != 20)
     for(var i = 0; i < names.length; i++)
         // loader.load( "models/" + random(bvhs) + ".bvh", createSkeleton);
-         loader.load( "models/pirouette.bvh", createSkeleton);
+         loader.load( "models/" + random(bvhs) + ".bvh", createSkeleton);
     // loader.load( "models/pirouette.bvh", createSkeleton);
     // loader.load( "models/pirouette.bvh", createSkeleton);
     // loader.load( "models/pirouette.bvh", createSkeleton);
@@ -203,8 +207,7 @@ body{
         
         // scene.add( skeletonHelper );
         boneContainer.position.set(Math.floor((names.length - 1)/5) * 120 - 250, (names.length % 5) * 120 - 250 , 0); 
-        console.log(Math.floor((names.length - 1)/5)); 
-        console.log(Math.floor(names.length% 5)); 
+
         boneContainer.scale.set(.5, .5, .5); 
         boneContainers.push(boneContainer); 
         scene.add( boneContainer );
@@ -242,7 +245,7 @@ body{
         requestAnimationFrame( animate );
         var delta = clock.getDelta();
         // if ( mixer ) mixer.update( delta );
-        if(mixers)
+        if(mixers && mixers.length == 25)
             for(var i = 0; i<mixers.length; i++)
                 mixers[i].update(delta); 
         renderer.render( scene, camera );
@@ -275,9 +278,9 @@ body{
         head.scale.set(2, 2,2); 
         for(var i=0; i<miscParts.length; i++){
             miscParts[i].geometry =  new THREE.BoxGeometry( Math.random() * 15, Math.random() * 15, Math.random() * 10 );
-            miscParts[i].material = random(materials); 
+            miscParts[i].material = random(materials2); 
         }
-        // scene.background = new THREE.Color(colorArray[4]); 
+        miscParts = []; 
     }
     function changeName() {
         changeBody(document.getElementById("nameInput").value); 
